@@ -11,86 +11,137 @@ permissions:
 
 jobs:
   build:
+
     runs-on: ubuntu-latest
 
     steps:
 
-      # ==========================
-      # Descargar repositorio
-      # ==========================
+      ####################################################
+      # CHECKOUT
+      ####################################################
+
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ==========================
-      # Python
-      # ==========================
+      ####################################################
+      # PYTHON
+      ####################################################
+
       - name: Configurar Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      # ==========================
-      # Arduino CLI
-      # ==========================
+      ####################################################
+      # ARDUINO CLI
+      ####################################################
+
       - name: Instalar Arduino CLI
         uses: arduino/setup-arduino-cli@v2
 
-      # ==========================
-      # ESP8266 Core
-      # ==========================
+      ####################################################
+      # ESP8266 CORE
+      ####################################################
+
       - name: Instalar ESP8266 Core
         run: |
+
           arduino-cli config init
 
-          arduino-cli config add board_manager.additional_urls \
-          https://arduino.esp8266.com/stable/package_esp8266com_index.json
+          arduino-cli config add board_manager.additional_urls https://arduino.esp8266.com/stable/package_esp8266com_index.json
 
           arduino-cli core update-index
 
           arduino-cli core install esp8266:esp8266
 
-      # ==========================
-      # Limpiar
-      # ==========================
+      ####################################################
+      # LIMPIAR
+      ####################################################
+
       - name: Limpiar Output
         run: |
           python tools/clean_output.py
 
-      # ==========================
-      # Verificar proyecto
-      # ==========================
+      ####################################################
+      # VERIFICAR PROYECTO
+      ####################################################
+
       - name: Verificar Proyecto
         run: |
           python tools/check_project.py
 
-      # ==========================
-      # Leer proyecto
-      # ==========================
+      ####################################################
+      # LEER PROYECTO
+      ####################################################
+
       - name: Leer Proyecto
         run: |
+
+          echo "===== project.txt ====="
+
+          cat output/project.txt
+
           PROJECT=$(cat output/project.txt)
+
           echo "PROJECT=$PROJECT" >> $GITHUB_ENV
 
-      - name: Mostrar Proyecto
-        run: |
-          echo "Proyecto seleccionado: $PROJECT"
+      ####################################################
+      # INFORMACION DEL REPOSITORIO
+      ####################################################
 
-      # ==========================
-      # Instalar librerías
-      # ==========================
+      - name: Mostrar estructura
+        run: |
+
+          echo "===== PWD ====="
+          pwd
+
+          echo ""
+          echo "===== ROOT ====="
+          ls -la
+
+          echo ""
+          echo "===== PROJECTS ====="
+          find projects
+
+          echo ""
+          echo "===== WeatherHouse ====="
+          ls -la projects/$PROJECT
+
+      ####################################################
+      # BOARD
+      ####################################################
+
+      - name: Mostrar Board
+        run: |
+
+          echo "===== BOARD ====="
+
+          cat projects/$PROJECT/board.txt
+
+      ####################################################
+      # LIBRERIAS
+      ####################################################
+
       - name: Instalar Librerías
         run: |
+
           while IFS= read -r LIB
           do
+
             if [ ! -z "$LIB" ]; then
-              echo "Instalando $LIB"
+
+              echo "Instalando: $LIB"
+
               arduino-cli lib install "$LIB" || true
+
             fi
+
           done < projects/$PROJECT/libraries.txt
 
-      # ==========================
-      # Compilar
-      # ==========================
+      ####################################################
+      # COMPILAR
+      ####################################################
+
       - name: Compilar Firmware
         run: |
 
@@ -98,67 +149,86 @@ jobs:
 
           BOARD=$(cat projects/$PROJECT/board.txt)
 
-          echo "Board: $BOARD"
+          echo "Compilando..."
 
           arduino-cli compile \
-            --fqbn $BOARD \
+            --fqbn "$BOARD" \
             --output-dir build \
-            projects/$PROJECT
+            "projects/$PROJECT"
 
-      # ==========================
-      # Buscar firmware
-      # ==========================
+      ####################################################
+      # VER BINARIOS
+      ####################################################
+
       - name: Buscar BIN
         run: |
-          find build -name "*.bin"
 
-      # ==========================
-      # Copiar firmware
-      # ==========================
+          echo "===== BUILD ====="
+
+          find build
+
+      ####################################################
+      # COPIAR
+      ####################################################
+
       - name: Copiar Firmware
         run: |
-          cp $(find build -name "*.bin" | head -n1) output/firmware.bin
 
-      # ==========================
-      # SHA256
-      # ==========================
+          BIN=$(find build -name "*.bin" | head -n 1)
+
+          echo "Firmware encontrado:"
+
+          echo "$BIN"
+
+          cp "$BIN" output/firmware.bin
+
+      ####################################################
+      # HASH
+      ####################################################
+
       - name: SHA256
         run: |
+
           sha256sum output/firmware.bin > output/firmware.sha256
 
-      # ==========================
-      # Version
-      # ==========================
-      - name: Actualizar Versión
+      ####################################################
+      # VERSION
+      ####################################################
+
+      - name: Actualizar Version
         run: |
           python tools/update_version.py
 
-      # ==========================
-      # Manifest
-      # ==========================
-      - name: Generar Manifest
+      ####################################################
+      # MANIFEST
+      ####################################################
+
+      - name: Manifest
         run: |
           python tools/generate_manifest.py
 
-      # ==========================
-      # Build Info
-      # ==========================
+      ####################################################
+      # BUILD INFO
+      ####################################################
+
       - name: Build Info
         run: |
           python tools/build_info.py
 
-      # ==========================
-      # Publicar firmware
-      # ==========================
-      - name: Subir Firmware
+      ####################################################
+      # ARTEFACTO
+      ####################################################
+
+      - name: Publicar Firmware
         uses: actions/upload-artifact@v4
         with:
           name: firmware
           path: output/firmware.bin
 
-      # ==========================
-      # Commit automático
-      # ==========================
+      ####################################################
+      # COMMIT
+      ####################################################
+
       - name: Commit
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
