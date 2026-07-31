@@ -1,0 +1,42 @@
+Folder PATH listing
+Volume serial number is AE5F-8C61
+C:.
+|   arbol.bat
+|   arbol.txt
+|   GWS_Menu.bat
+|   LICENSE
+|   README.md
+|   
++---.github
+|   \---workflows
+|           build.yml
+|           
++---config
+|       config.ini
+|       
++---docs
++---output
++---projects
+|   \---WeatherHouse
+|           board.txt
+|           libraries.txt
+|           README.md
+|           secrets.h
+|           version.txt
+|           
++---templates
+\---tools
+        build.py
+        build_info.py
+        check_project.py
+        clean_output.py
+        compile_project.bat
+        create_project.bat
+        generate_manifest.py
+        GWS_AddLibrary.bat
+        GWS_Release.bat
+        GWS_SelectProject.bat
+        import_project.bat
+        install_libraries.py
+        update_version.py
+        
