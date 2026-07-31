@@ -10,91 +10,156 @@ permissions:
   contents: write
 
 jobs:
-
   build:
-
     runs-on: ubuntu-latest
 
     steps:
 
-    - name: Checkout
-      uses: actions/checkout@v4
+      # ==========================
+      # Descargar repositorio
+      # ==========================
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.11"
+      # ==========================
+      # Python
+      # ==========================
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-    - name: Arduino CLI
-      uses: arduino/setup-arduino-cli@v2
+      # ==========================
+      # Arduino CLI
+      # ==========================
+      - name: Instalar Arduino CLI
+        uses: arduino/setup-arduino-cli@v2
 
-    - name: Instalar ESP8266
-      run: |
-        arduino-cli config init
-        arduino-cli config add board_manager.additional_urls https://arduino.esp8266.com/stable/package_esp8266com_index.json
-        arduino-cli core update-index
-        arduino-cli core install esp8266:esp8266
+      # ==========================
+      # ESP8266 Core
+      # ==========================
+      - name: Instalar ESP8266 Core
+        run: |
+          arduino-cli config init
 
-    - name: Leer Proyecto
-      run: |
-        PROJECT=$(cat output/project.txt)
-        echo "PROJECT=$PROJECT" >> $GITHUB_ENV
+          arduino-cli config add board_manager.additional_urls \
+          https://arduino.esp8266.com/stable/package_esp8266com_index.json
 
-    - name: Mostrar Proyecto
-      run: |
-        echo Proyecto: $PROJECT
+          arduino-cli core update-index
 
-    - name: Instalar Librerias
-      run: |
-        while IFS= read -r LIB
-        do
-          if [ ! -z "$LIB" ]; then
-            echo Instalando "$LIB"
-            arduino-cli lib install "$LIB" || true
-          fi
-        done < projects/$PROJECT/libraries.txt
+          arduino-cli core install esp8266:esp8266
 
-    - name: Compilar
-      run: |
+      # ==========================
+      # Limpiar
+      # ==========================
+      - name: Limpiar Output
+        run: |
+          python tools/clean_output.py
 
-        mkdir build
+      # ==========================
+      # Verificar proyecto
+      # ==========================
+      - name: Verificar Proyecto
+        run: |
+          python tools/check_project.py
 
-        BOARD=$(cat projects/$PROJECT/board.txt)
+      # ==========================
+      # Leer proyecto
+      # ==========================
+      - name: Leer Proyecto
+        run: |
+          PROJECT=$(cat output/project.txt)
+          echo "PROJECT=$PROJECT" >> $GITHUB_ENV
 
-        arduino-cli compile \
-        --fqbn $BOARD \
-        --output-dir build \
-        projects/$PROJECT
+      - name: Mostrar Proyecto
+        run: |
+          echo "Proyecto seleccionado: $PROJECT"
 
-    - name: Copiar BIN
-      run: |
-        cp build/*.bin output/firmware.bin
+      # ==========================
+      # Instalar librerías
+      # ==========================
+      - name: Instalar Librerías
+        run: |
+          while IFS= read -r LIB
+          do
+            if [ ! -z "$LIB" ]; then
+              echo "Instalando $LIB"
+              arduino-cli lib install "$LIB" || true
+            fi
+          done < projects/$PROJECT/libraries.txt
 
-    - name: SHA256
-      run: |
-        sha256sum output/firmware.bin > output/firmware.sha256
+      # ==========================
+      # Compilar
+      # ==========================
+      - name: Compilar Firmware
+        run: |
 
-    - name: Generar Version
-      run: |
-        python tools/update_version.py
+          mkdir -p build
 
-    - name: Manifest
-      run: |
-        python tools/generate_manifest.py
+          BOARD=$(cat projects/$PROJECT/board.txt)
 
-    - name: Build Info
-      run: |
-        python tools/build_info.py
+          echo "Board: $BOARD"
 
-    - name: Commit
-      uses: stefanzweifel/git-auto-commit-action@v5
-      with:
-        commit_message: Nuevo firmware OTA
+          arduino-cli compile \
+            --fqbn $BOARD \
+            --output-dir build \
+            projects/$PROJECT
 
-- name: Limpiar
-  run: |
-    python tools/clean_output.py
+      # ==========================
+      # Buscar firmware
+      # ==========================
+      - name: Buscar BIN
+        run: |
+          find build -name "*.bin"
 
-- name: Verificar Proyecto
-  run: |
-    python tools/check_project.py
+      # ==========================
+      # Copiar firmware
+      # ==========================
+      - name: Copiar Firmware
+        run: |
+          cp $(find build -name "*.bin" | head -n1) output/firmware.bin
+
+      # ==========================
+      # SHA256
+      # ==========================
+      - name: SHA256
+        run: |
+          sha256sum output/firmware.bin > output/firmware.sha256
+
+      # ==========================
+      # Version
+      # ==========================
+      - name: Actualizar Versión
+        run: |
+          python tools/update_version.py
+
+      # ==========================
+      # Manifest
+      # ==========================
+      - name: Generar Manifest
+        run: |
+          python tools/generate_manifest.py
+
+      # ==========================
+      # Build Info
+      # ==========================
+      - name: Build Info
+        run: |
+          python tools/build_info.py
+
+      # ==========================
+      # Publicar firmware
+      # ==========================
+      - name: Subir Firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: output/firmware.bin
+
+      # ==========================
+      # Commit automático
+      # ==========================
+      - name: Commit
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Nuevo firmware OTA"
