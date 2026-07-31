@@ -1,0 +1,8 @@
+{
+    "framework": "GWS OTA Framework",
+    "project": "WeatherHouse",
+    "board": "esp8266:esp8266:d1_mini",
+    "version": "1.0.1",
+    "date": "31/07/2026 17:36:59",
+    "status": "OK"
+}
